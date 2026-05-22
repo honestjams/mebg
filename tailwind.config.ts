@@ -1,31 +1,23 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss';
 
 const config: Config = {
-  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
+  content: [
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
   theme: {
     extend: {
       colors: {
-        bone: "#F5EFE0",
-        cream: "#FBF7EC",
-        burgundy: {
-          DEFAULT: "#6B1F1F",
-          dark: "#4A1414",
-          light: "#8B2D2D",
-        },
-        sage: {
-          DEFAULT: "#3E5640",
-          dark: "#2A3C2C",
-          light: "#5A7259",
-        },
-        ink: "#1F1A17",
-        gold: "#B8893E",
+        stone: '#1a0f08',
+        gold: '#c8a96e',
+        parchment: '#f4e4c1',
+        blood: '#8b1a1a',
+        forest: '#1a3a1a',
       },
       fontFamily: {
-        display: ["var(--font-fraunces)", "Georgia", "serif"],
-        body: ["var(--font-manrope)", "system-ui", "sans-serif"],
-      },
-      letterSpacing: {
-        tightest: "-0.04em",
+        heading: ['Cinzel', 'serif'],
+        body: ['Crimson Text', 'serif'],
       },
     },
   },
