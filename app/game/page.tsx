@@ -1,70 +1,171 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { PHASES } from '../../lib/gameRules';
+import { PHASES, DEFAULT_MAX_TURNS } from '../../lib/gameRules';
 import PhaseNavigator from '../../components/PhaseNavigator';
 import DiceRoller from '../../components/DiceRoller';
-import PlayerPanel from '../../components/PlayerPanel';
+import PlayerPanel, { ModelEntry } from '../../components/PlayerPanel';
+
+type PlayerState = {
+  name: string;
+  faction: 'good' | 'evil';
+  points: number;
+  vp: number;
+  models: ModelEntry[];
+};
 
 function GameContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
-  const p1Name = searchParams.get('p1') || 'Player 1';
-  const p2Name = searchParams.get('p2') || 'Player 2';
-  const f1 = (searchParams.get('f1') || 'good') as 'good' | 'evil';
-  const f2 = (searchParams.get('f2') || 'evil') as 'good' | 'evil';
+  // Parse player count from search params (default 2, max 4)
+  const numPlayers = Math.min(4, Math.max(2, parseInt(searchParams.get('n') || '2', 10)));
   const pointLimit = parseInt(searchParams.get('pts') || '500', 10);
   const scenario = searchParams.get('scenario') || 'Custom Battle';
+  const maxTurns = parseInt(searchParams.get('maxTurns') || String(DEFAULT_MAX_TURNS), 10);
 
-  // Game state
+  // Initialise players from URL
+  const initialPlayers: PlayerState[] = useMemo(() => {
+    const list: PlayerState[] = [];
+    for (let i = 1; i <= numPlayers; i++) {
+      list.push({
+        name: searchParams.get(`p${i}`) || `Player ${i}`,
+        faction: (searchParams.get(`f${i}`) || (i % 2 === 1 ? 'good' : 'evil')) as 'good' | 'evil',
+        points: pointLimit,
+        vp: 0,
+        models: [],
+      });
+    }
+    return list;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [players, setPlayers] = useState<PlayerState[]>(initialPlayers);
   const [currentPhase, setCurrentPhase] = useState(0);
   const [currentTurn, setCurrentTurn] = useState(1);
-  const [priorityPlayer, setPriorityPlayer] = useState<1 | 2>(1);
-
-  // Player state
-  const [p1Points, setP1Points] = useState(pointLimit);
-  const [p2Points, setP2Points] = useState(pointLimit);
-  const [p1VP, setP1VP] = useState(0);
-  const [p2VP, setP2VP] = useState(0);
-  const [p1MWF, setP1MWF] = useState<[number, number, number]>([3, 3, 3]);
-  const [p2MWF, setP2MWF] = useState<[number, number, number]>([3, 3, 3]);
-
-  const [phaseAnimKey, setPhaseAnimKey] = useState(0);
+  const [priorityPlayer, setPriorityPlayer] = useState(0); // 0..n-1
+  const [gameOver, setGameOver] = useState(false);
+  const [checkedActions, setCheckedActions] = useState<Set<string>>(new Set());
 
   const breakingPoint = Math.floor(pointLimit / 2);
-  const p1Breaking = p1Points <= breakingPoint;
-  const p2Breaking = p2Points <= breakingPoint;
-  const eitherBreaking = p1Breaking || p2Breaking;
+
+  function updatePlayer(idx: number, patch: Partial<PlayerState>) {
+    setPlayers((ps) => ps.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  }
 
   function handlePhaseChange(phase: number) {
-    setPhaseAnimKey((k) => k + 1);
     setCurrentPhase(phase);
+    setCheckedActions(new Set());
   }
 
   function handleEndTurn() {
+    if (currentTurn >= maxTurns) {
+      setGameOver(true);
+      return;
+    }
     setCurrentTurn((t) => t + 1);
     setCurrentPhase(0);
-    setPhaseAnimKey((k) => k + 1);
+    setCheckedActions(new Set());
   }
 
-  function togglePriority() {
-    setPriorityPlayer((p) => (p === 1 ? 2 : 1));
+  function cyclePriority() {
+    setPriorityPlayer((p) => (p + 1) % players.length);
+  }
+
+  function toggleAction(key: string) {
+    setCheckedActions((set) => {
+      const next = new Set(set);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function resetGame() {
+    setPlayers(initialPlayers);
+    setCurrentPhase(0);
+    setCurrentTurn(1);
+    setPriorityPlayer(0);
+    setGameOver(false);
+    setCheckedActions(new Set());
   }
 
   const currentPhaseData = PHASES[currentPhase];
+  const phaseColor = currentPhaseData.color;
 
-  const phaseColorMap: Record<number, string> = {
-    0: '#8b1a1a',
-    1: '#2a5a2a',
-    2: '#8a6020',
-    3: '#6a2a2a',
-  };
-  const phaseColor = phaseColorMap[currentPhase];
+  // Breaking-point status
+  const playerBreaking = players.map((p) => p.points <= breakingPoint);
+  const anyBreaking = playerBreaking.some(Boolean);
 
-  const priorityName = priorityPlayer === 1 ? p1Name : p2Name;
+  // Game over screen
+  if (gameOver) {
+    const ranked = [...players].map((p, i) => ({ ...p, idx: i })).sort((a, b) => b.vp - a.vp || b.points - a.points);
+    const winner = ranked[0];
+    const tied = ranked.filter((p) => p.vp === winner.vp && p.points === winner.points);
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#1a0f08', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
+        <div className="panel" style={{ maxWidth: '600px', width: '100%', textAlign: 'center', borderColor: '#c8a96e', boxShadow: '0 0 40px rgba(200,169,110,0.3)' }}>
+          <div style={{ color: '#c8a96e', fontSize: '1.1rem', letterSpacing: '0.5rem', marginBottom: '1rem', opacity: 0.6 }}>
+            ᚛ ✦ ᚜ ✦ ᚛ ✦ ᚜
+          </div>
+          <h1 style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', marginBottom: '0.5rem' }}>The Battle is Ended</h1>
+          <p style={{ fontFamily: 'Cinzel, serif', letterSpacing: '0.2em', color: 'rgba(200,169,110,0.6)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+            {scenario.toUpperCase()} · {currentTurn} TURNS FOUGHT
+          </p>
+
+          <div className="divider" style={{ margin: '1.25rem auto', maxWidth: '320px' }}>
+            <span className="divider-text">✦ Victor ✦</span>
+          </div>
+
+          {tied.length > 1 ? (
+            <p style={{ fontFamily: 'Cinzel, serif', fontSize: '1.4rem', color: '#c8a96e', marginBottom: '1rem' }}>
+              The field is divided — {tied.map((t) => t.name).join(' & ')} share the day.
+            </p>
+          ) : (
+            <p style={{ fontFamily: 'Cinzel, serif', fontSize: '1.6rem', color: '#c8a96e', marginBottom: '1rem' }}>
+              {winner.name}
+            </p>
+          )}
+
+          <div className="panel-inner" style={{ marginBottom: '1.25rem' }}>
+            {ranked.map((p, place) => (
+              <div key={p.idx} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.4rem 0',
+                borderBottom: place < ranked.length - 1 ? '1px solid rgba(200,169,110,0.15)' : 'none',
+              }}>
+                <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.95rem', color: place === 0 ? '#c8a96e' : '#f4e4c1' }}>
+                  {place + 1}. {p.name}
+                </span>
+                <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.85rem', color: 'rgba(244,228,193,0.65)' }}>
+                  {p.vp} VP · {p.points}/{pointLimit} pts
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ fontFamily: 'Crimson Text, serif', fontStyle: 'italic', color: 'rgba(244,228,193,0.6)', marginBottom: '1.5rem' }}>
+            &ldquo;The Road goes ever on and on…&rdquo;
+          </p>
+
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <button className="btn-gold" onClick={resetGame}>↻ Replay</button>
+            <Link href="/setup"><button className="btn-gold-filled">⚔ New Battle</button></Link>
+            <Link href="/"><button className="btn-gold">↩ Hall</button></Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Layout grid for player panels — responsive based on player count
+  const playerGridCols =
+    players.length === 2 ? 'repeat(2, minmax(0, 1fr))' :
+    players.length === 3 ? 'repeat(3, minmax(0, 1fr))' :
+    'repeat(auto-fit, minmax(220px, 1fr))';
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#1a0f08', display: 'flex', flexDirection: 'column' }}>
@@ -79,27 +180,21 @@ function GameContent() {
         gap: '1rem',
         flexWrap: 'wrap',
       }}>
-        <Link href="/setup" style={{ fontSize: '0.8rem', opacity: 0.6, flexShrink: 0 }}>
-          ← Setup
-        </Link>
-
+        <Link href="/setup" style={{ fontSize: '0.8rem', opacity: 0.6, flexShrink: 0 }}>← Setup</Link>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontFamily: 'Cinzel, serif', fontSize: '0.7rem', letterSpacing: '0.15em', color: 'rgba(200,169,110,0.5)', textTransform: 'uppercase' }}>
             {scenario}
           </div>
           <div style={{ fontFamily: 'Cinzel, serif', fontSize: '1rem', color: '#c8a96e', fontWeight: 700 }}>
-            Turn {currentTurn} &nbsp;·&nbsp; {currentPhaseData.icon} {currentPhaseData.name}
+            Turn {currentTurn}/{maxTurns} &nbsp;·&nbsp; {currentPhaseData.icon} {currentPhaseData.name}
           </div>
         </div>
-
-        <Link href="/rules" style={{ fontSize: '0.8rem', opacity: 0.6, flexShrink: 0 }}>
-          Rules →
-        </Link>
+        <Link href="/rules" style={{ fontSize: '0.8rem', opacity: 0.6, flexShrink: 0 }}>Rules →</Link>
       </header>
 
-      {/* Breaking Point Banner */}
-      {eitherBreaking && (
-        <div className="breaking-point-banner" style={{
+      {/* Breaking-Point banner */}
+      {anyBreaking && (
+        <div style={{
           backgroundColor: 'rgba(139,26,26,0.3)',
           borderBottom: '1px solid #8b1a1a',
           padding: '0.4rem 1rem',
@@ -110,159 +205,232 @@ function GameContent() {
           color: '#e07070',
         }}>
           ⚠ BREAKING POINT —{' '}
-          {p1Breaking && p2Breaking
-            ? 'Both armies are broken!'
-            : p1Breaking
-            ? `${p1Name}'s army is broken!`
-            : `${p2Name}'s army is broken!`}
+          {players.filter((_, i) => playerBreaking[i]).map((p) => p.name).join(', ')} broken
         </div>
       )}
 
-      {/* Main content */}
-      <main style={{ flex: 1, padding: '0.75rem 1rem 1rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+      {/* Final-turn banner */}
+      {currentTurn >= maxTurns && !gameOver && (
+        <div style={{
+          backgroundColor: 'rgba(200,169,110,0.15)',
+          borderBottom: '1px solid #c8a96e',
+          padding: '0.4rem 1rem',
+          textAlign: 'center',
+          fontFamily: 'Cinzel, serif',
+          fontSize: '0.75rem',
+          letterSpacing: '0.12em',
+          color: '#c8a96e',
+        }}>
+          ✦ FINAL TURN — the long day draws to a close
+        </div>
+      )}
+
+      <main style={{ flex: 1, padding: '0.75rem 1rem 1rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
         {/* Top: Phase Navigator */}
         <PhaseNavigator
           currentPhase={currentPhase}
           onPhaseChange={handlePhaseChange}
           currentTurn={currentTurn}
+          maxTurns={maxTurns}
           onEndTurn={handleEndTurn}
         />
 
-        {/* Phase Rules Panel */}
-        <div
-          key={phaseAnimKey}
-          className="panel phase-animate"
-          style={{
-            borderColor: phaseColor,
-            boxShadow: `0 0 15px ${phaseColor}30, inset 0 0 30px rgba(0,0,0,0.3)`,
-            marginBottom: '0.75rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>{currentPhaseData.icon}</span>
-            <h3 style={{ color: phaseColor, margin: 0, fontSize: '1.1rem' }}>
-              {currentPhaseData.name} — Rules
+        {/* Phase Action Checklist */}
+        <div className="panel" style={{
+          borderColor: phaseColor,
+          boxShadow: `0 0 15px ${phaseColor}30, inset 0 0 30px rgba(0,0,0,0.3)`,
+          marginBottom: '0.75rem',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
+            <span style={{ fontSize: '1.3rem' }}>{currentPhaseData.icon}</span>
+            <h3 style={{ color: phaseColor, margin: 0, fontSize: '1rem' }}>
+              {currentPhaseData.name} — Action Sequence
             </h3>
           </div>
 
-          <ul style={{ paddingLeft: '1.25rem', marginBottom: '0.75rem' }}>
-            {currentPhaseData.rules.map((rule, i) => (
-              <li
-                key={i}
-                style={{
-                  fontFamily: 'Crimson Text, serif',
-                  fontSize: '1rem',
-                  color: '#f4e4c1',
-                  lineHeight: 1.5,
-                  marginBottom: '0.35rem',
-                  opacity: 0.9,
-                }}
-              >
-                {rule}
-              </li>
-            ))}
-          </ul>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {currentPhaseData.actions.map((act, i) => {
+              const key = `${currentTurn}-${currentPhase}-${i}`;
+              const done = checkedActions.has(key);
+              return (
+                <button
+                  key={i}
+                  onClick={() => toggleAction(key)}
+                  style={{
+                    background: done ? `${phaseColor}18` : 'transparent',
+                    border: `1px solid ${done ? phaseColor : 'rgba(200,169,110,0.18)'}`,
+                    borderRadius: '3px',
+                    padding: '0.45rem 0.7rem',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.55rem',
+                    transition: 'background-color 0.15s ease, border-color 0.15s ease',
+                  }}
+                >
+                  <span style={{
+                    minWidth: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    border: `1.5px solid ${done ? phaseColor : 'rgba(200,169,110,0.45)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: phaseColor,
+                    fontSize: '0.7rem',
+                    flexShrink: 0,
+                    marginTop: '0.15rem',
+                  }}>
+                    {done ? '✓' : ''}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontFamily: 'Cinzel, serif',
+                      fontSize: '0.78rem',
+                      letterSpacing: '0.04em',
+                      color: done ? phaseColor : '#f4e4c1',
+                      marginBottom: '0.15rem',
+                    }}>
+                      {act.step}
+                      {act.who && (
+                        <span style={{
+                          marginLeft: '0.5rem',
+                          fontSize: '0.6rem',
+                          letterSpacing: '0.08em',
+                          color: 'rgba(200,169,110,0.55)',
+                          textTransform: 'uppercase',
+                        }}>· {act.who}</span>
+                      )}
+                    </div>
+                    <p style={{
+                      fontFamily: 'Crimson Text, serif',
+                      fontSize: '0.82rem',
+                      color: 'rgba(244,228,193,0.7)',
+                      lineHeight: 1.35,
+                      margin: 0,
+                    }}>
+                      {act.detail}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
           <div style={{
-            padding: '0.5rem 0.75rem',
+            marginTop: '0.6rem',
+            padding: '0.5rem 0.7rem',
             backgroundColor: `${phaseColor}20`,
             border: `1px solid ${phaseColor}40`,
             borderRadius: '3px',
           }}>
             <span style={{
               fontFamily: 'Cinzel, serif',
-              fontSize: '0.65rem',
+              fontSize: '0.62rem',
               letterSpacing: '0.1em',
               color: phaseColor,
               textTransform: 'uppercase',
-              marginRight: '0.5rem',
-            }}>
-              ✦ Tip
-            </span>
-            <span style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.95rem', fontStyle: 'italic', color: 'rgba(244,228,193,0.75)' }}>
+              marginRight: '0.4rem',
+            }}>✦ Tip</span>
+            <span style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.88rem', fontStyle: 'italic', color: 'rgba(244,228,193,0.75)' }}>
               {currentPhaseData.tips}
             </span>
           </div>
         </div>
 
-        {/* Priority indicator */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+        {/* Priority bar */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
-            onClick={togglePriority}
+            onClick={cyclePriority}
             className="btn-gold"
-            style={{ borderColor: '#8b1a1a', color: '#e07070' }}
+            style={{ borderColor: '#c8a96e', color: '#c8a96e' }}
           >
-            ⚔️ Priority: {priorityName} — Toggle
+            ⚔️ Priority: {players[priorityPlayer].name} — Cycle
           </button>
         </div>
 
-        {/* Bottom row: Player panels + Dice */}
+        {/* Dice + VP Summary */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
+          gridTemplateColumns: 'minmax(180px, 220px) 1fr',
+          gap: '0.75rem',
+          marginBottom: '0.75rem',
+          alignItems: 'start',
+        }}>
+          <DiceRoller />
+
+          <div className="panel" style={{ padding: '0.75rem' }}>
+            <p className="lotr-label" style={{ marginBottom: '0.5rem', textAlign: 'center' }}>Victory Points</p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${players.length}, minmax(0, 1fr))`,
+              gap: '0.5rem',
+            }}>
+              {players.map((p, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '0.4rem',
+                  borderRadius: '3px',
+                  backgroundColor: priorityPlayer === i ? 'rgba(200,169,110,0.1)' : 'transparent',
+                  border: priorityPlayer === i ? '1px solid rgba(200,169,110,0.35)' : '1px solid transparent',
+                }}>
+                  <span style={{
+                    fontFamily: 'Cinzel, serif',
+                    fontSize: '0.65rem',
+                    letterSpacing: '0.08em',
+                    color: 'rgba(200,169,110,0.65)',
+                    textTransform: 'uppercase',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {priorityPlayer === i && '⚔ '}{p.name.split(' ')[0]}
+                  </span>
+                  <span style={{
+                    fontFamily: 'Cinzel, serif',
+                    fontSize: '1.5rem',
+                    fontWeight: 700,
+                    color: p.faction === 'good' ? '#a0c0f0' : '#e07070',
+                  }}>
+                    {p.vp}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Player panels */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: playerGridCols,
           gap: '0.75rem',
           alignItems: 'start',
         }}>
-          {/* Player 1 */}
-          <PlayerPanel
-            playerName={p1Name}
-            faction={f1}
-            pointLimit={pointLimit}
-            points={p1Points}
-            vp={p1VP}
-            mwf={p1MWF}
-            onPointsChange={setP1Points}
-            onVpChange={setP1VP}
-            onMwfChange={setP1MWF}
-            isBreaking={p1Breaking}
-          />
-
-          {/* Center: Dice Roller */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: '160px', maxWidth: '200px' }}>
-            <DiceRoller />
-
-            {/* VP Summary */}
-            <div className="panel" style={{ textAlign: 'center', padding: '0.75rem' }}>
-              <p className="lotr-label" style={{ marginBottom: '0.5rem', textAlign: 'center' }}>Victory Points</p>
-              <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-                <div>
-                  <span style={{ fontFamily: 'Cinzel, serif', fontSize: '1.6rem', fontWeight: 700, color: f1 === 'good' ? '#a0c0f0' : '#e07070' }}>
-                    {p1VP}
-                  </span>
-                  <p style={{ fontFamily: 'Cinzel, serif', fontSize: '0.6rem', color: 'rgba(200,169,110,0.45)', letterSpacing: '0.08em' }}>
-                    {p1Name.split(' ')[0]}
-                  </p>
-                </div>
-                <span style={{ color: 'rgba(200,169,110,0.3)', fontFamily: 'Cinzel, serif' }}>vs</span>
-                <div>
-                  <span style={{ fontFamily: 'Cinzel, serif', fontSize: '1.6rem', fontWeight: 700, color: f2 === 'good' ? '#a0c0f0' : '#e07070' }}>
-                    {p2VP}
-                  </span>
-                  <p style={{ fontFamily: 'Cinzel, serif', fontSize: '0.6rem', color: 'rgba(200,169,110,0.45)', letterSpacing: '0.08em' }}>
-                    {p2Name.split(' ')[0]}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Player 2 */}
-          <PlayerPanel
-            playerName={p2Name}
-            faction={f2}
-            pointLimit={pointLimit}
-            points={p2Points}
-            vp={p2VP}
-            mwf={p2MWF}
-            onPointsChange={setP2Points}
-            onVpChange={setP2VP}
-            onMwfChange={setP2MWF}
-            isBreaking={p2Breaking}
-          />
+          {players.map((p, i) => (
+            <PlayerPanel
+              key={i}
+              playerName={p.name}
+              faction={p.faction}
+              pointLimit={pointLimit}
+              points={p.points}
+              vp={p.vp}
+              models={p.models}
+              onPointsChange={(v) => updatePlayer(i, { points: v })}
+              onVpChange={(v) => updatePlayer(i, { vp: v })}
+              onModelsChange={(m) => updatePlayer(i, { models: m })}
+              isBreaking={playerBreaking[i]}
+              hasPriority={priorityPlayer === i}
+              playerIndex={i}
+            />
+          ))}
         </div>
       </main>
 
-      {/* Footer */}
       <footer style={{
         textAlign: 'center',
         padding: '0.75rem',
