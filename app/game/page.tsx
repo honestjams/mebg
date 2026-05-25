@@ -4,9 +4,49 @@ import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PHASES, DEFAULT_MAX_TURNS } from '../../lib/gameRules';
+import { getScenario, Scenario } from '../../lib/scenarios';
 import PhaseNavigator from '../../components/PhaseNavigator';
 import DiceRoller from '../../components/DiceRoller';
 import PlayerPanel, { ModelEntry } from '../../components/PlayerPanel';
+
+function ScenarioPanel({ scenario }: { scenario: Scenario }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="panel" style={{ marginBottom: '0.75rem', borderColor: 'rgba(200,169,110,0.35)', padding: 0 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', padding: '0.55rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.75rem', letterSpacing: '0.12em', color: '#c8a96e', textTransform: 'uppercase' }}>
+            📜 {scenario.name}
+          </span>
+          <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.58rem', letterSpacing: '0.08em', color: 'rgba(200,169,110,0.45)', textTransform: 'uppercase', padding: '0.1rem 0.35rem', border: '1px solid rgba(200,169,110,0.25)', borderRadius: '2px' }}>
+            {scenario.gameEndType === '25pct' ? '25% end' : scenario.gameEndType === 'broken-roll' ? 'broken + D6 roll' : 'special'}
+          </span>
+        </div>
+        <span style={{ color: 'rgba(200,169,110,0.5)', fontSize: '0.75rem' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 0.85rem 0.75rem', borderTop: '1px solid rgba(200,169,110,0.15)' }}>
+          <p style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.9rem', color: 'rgba(244,228,193,0.8)', marginBottom: '0.5rem', lineHeight: 1.4 }}>
+            {scenario.objective}
+          </p>
+          <p style={{ fontFamily: 'Cinzel, serif', fontSize: '0.6rem', letterSpacing: '0.08em', color: '#c8a96e', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Victory Points</p>
+          <ul style={{ paddingLeft: '1rem', margin: '0 0 0.5rem' }}>
+            {scenario.vpScoring.map((v, i) => (
+              <li key={i} style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.82rem', color: 'rgba(244,228,193,0.75)', lineHeight: 1.35, marginBottom: '0.15rem' }}>{v}</li>
+            ))}
+          </ul>
+          <div style={{ padding: '0.3rem 0.5rem', backgroundColor: 'rgba(139,26,26,0.15)', border: '1px solid rgba(139,26,26,0.3)', borderRadius: '3px' }}>
+            <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.6rem', letterSpacing: '0.08em', color: '#e07070' }}>Game Ends: </span>
+            <span style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.82rem', color: 'rgba(244,228,193,0.8)' }}>{scenario.gameEnd}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type PlayerState = {
   name: string;
@@ -22,8 +62,10 @@ function GameContent() {
   // Parse player count from search params (default 2, max 4)
   const numPlayers = Math.min(4, Math.max(2, parseInt(searchParams.get('n') || '2', 10)));
   const pointLimit = parseInt(searchParams.get('pts') || '500', 10);
-  const scenario = searchParams.get('scenario') || 'Custom Battle';
+  const scenarioName = searchParams.get('scenario') || 'Custom Battle';
+  const scenarioId = searchParams.get('scenarioId') || '';
   const maxTurns = parseInt(searchParams.get('maxTurns') || String(DEFAULT_MAX_TURNS), 10);
+  const scenarioData = getScenario(scenarioId);
 
   // Initialise players from URL
   const initialPlayers: PlayerState[] = useMemo(() => {
@@ -111,7 +153,7 @@ function GameContent() {
           </div>
           <h1 style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', marginBottom: '0.5rem' }}>The Battle is Ended</h1>
           <p style={{ fontFamily: 'Cinzel, serif', letterSpacing: '0.2em', color: 'rgba(200,169,110,0.6)', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-            {scenario.toUpperCase()} · {currentTurn} TURNS FOUGHT
+            {scenarioName.toUpperCase()} · {currentTurn} TURNS FOUGHT
           </p>
 
           <div className="divider" style={{ margin: '1.25rem auto', maxWidth: '320px' }}>
@@ -183,7 +225,7 @@ function GameContent() {
         <Link href="/setup" style={{ fontSize: '0.8rem', opacity: 0.6, flexShrink: 0 }}>← Setup</Link>
         <div style={{ textAlign: 'center', flex: 1 }}>
           <div style={{ fontFamily: 'Cinzel, serif', fontSize: '0.7rem', letterSpacing: '0.15em', color: 'rgba(200,169,110,0.5)', textTransform: 'uppercase' }}>
-            {scenario}
+            {scenarioName}
           </div>
           <div style={{ fontFamily: 'Cinzel, serif', fontSize: '1rem', color: '#c8a96e', fontWeight: 700 }}>
             Turn {currentTurn}/{maxTurns} &nbsp;·&nbsp; {currentPhaseData.icon} {currentPhaseData.name}
@@ -226,6 +268,9 @@ function GameContent() {
       )}
 
       <main style={{ flex: 1, padding: '0.75rem 1rem 1rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+        {/* Scenario VP reminder (collapsed by default) */}
+        {scenarioData && <ScenarioPanel scenario={scenarioData} />}
+
         {/* Top: Phase Navigator */}
         <PhaseNavigator
           currentPhase={currentPhase}

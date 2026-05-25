@@ -132,26 +132,30 @@ export default function RulesPage() {
 
         {/* Courage tests */}
         <Accordion title="Courage Tests" icon="🛡️">
-          <p style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.95rem', color: 'rgba(244,228,193,0.7)', marginBottom: '1rem' }}>
-            Roll 2D6 and compare the result to the model&apos;s Courage value. If the roll is equal to or under the Courage value, the model passes.
-          </p>
+          <div style={{ padding: '0.6rem 0.75rem', backgroundColor: 'rgba(200,169,110,0.08)', border: '1px solid rgba(200,169,110,0.3)', borderRadius: '3px', marginBottom: '1rem' }}>
+            <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.7rem', letterSpacing: '0.1em', color: '#c8a96e' }}>How to roll: </span>
+            <span style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.95rem', color: 'rgba(244,228,193,0.9)' }}>
+              Roll <strong>2D6 and add your Courage value</strong>. If the total is <strong>10 or more</strong>, the test is passed.
+              (e.g. Courage 4 needs 6+ on 2D6; Courage 6 needs 4+ on 2D6.)
+            </span>
+          </div>
 
           <div style={{ overflowX: 'auto', marginBottom: '1rem' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Crimson Text, serif', fontSize: '0.95rem' }}>
               <thead>
                 <tr>
-                  {['Situation', 'Test Required'].map((h) => (
+                  {['Situation', 'Effect of Failing'].map((h) => (
                     <th key={h} style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid rgba(200,169,110,0.3)', color: '#c8a96e', textAlign: 'left', fontFamily: 'Cinzel, serif', fontSize: '0.75rem', letterSpacing: '0.08em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {[
-                  ['Army reaches Breaking Point', 'All models test each turn they wish to move toward the enemy'],
-                  ['Charged by Terror-causing model', 'Test before moving; fail = cannot charge or move toward terror model'],
-                  ['Within 3" of a Nazgûl using The Black Dart', 'Courage test or the model flees'],
-                  ['Spell: Wither / Transfix / Compel', 'Varies by spell — see spell description'],
-                  ['Heroic Resolve active', 'All friendly models within 6" automatically pass'],
+                  ['Broken Force (start of Move Phase)', 'Model moves full Move directly away from nearest enemy. Reaches board edge = removed as casualty.'],
+                  ['Terror — charging a model with Terror', 'Cannot charge that model this turn.'],
+                  ['Stand Fast! — hero within 6" already passed', 'Warrior automatically passes — no roll needed.'],
+                  ['Heroic Resolve active', 'All friendly models within 6" gain +1 free die to Resist tests; no courage test needed for them.'],
+                  ['Spending Might/Will on Courage', 'Each Might or Will point spent adds +1 to the 2D6 result for that test.'],
                 ].map(([sit, test], i) => (
                   <tr key={i} style={{ borderBottom: '1px solid rgba(200,169,110,0.1)' }}>
                     <td style={{ padding: '0.5rem 0.75rem', color: '#f4e4c1', opacity: 0.9 }}>{sit}</td>
@@ -165,7 +169,7 @@ export default function RulesPage() {
           <div style={{ padding: '0.6rem 0.75rem', backgroundColor: 'rgba(139,26,26,0.2)', border: '1px solid rgba(139,26,26,0.4)', borderRadius: '3px' }}>
             <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.7rem', letterSpacing: '0.1em', color: '#e07070' }}>Breaking Point: </span>
             <span style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.95rem', color: 'rgba(244,228,193,0.8)' }}>
-              An army is broken when half or more of its models have been removed. Broken armies must test Courage each turn to move toward the enemy.
+              A force is Broken when casualties exceed half its starting models (rounded down). All non-Engaged models must test Courage at the start of each Move Phase. Failing models must flee — if they reach a board edge, they are removed.
             </span>
           </div>
         </Accordion>
