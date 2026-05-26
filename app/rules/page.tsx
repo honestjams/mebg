@@ -151,7 +151,7 @@ export default function RulesPage() {
               </thead>
               <tbody>
                 {[
-                  ['Broken Force (start of Move Phase)', 'Model moves full Move directly away from nearest enemy. Reaches board edge = removed as casualty.'],
+                  ['Broken Force (start of Move Phase)', 'On a fail: model is immediately removed from play as a casualty — it has lost its nerve. Engaged models are exempt from the test.'],
                   ['Terror — charging a model with Terror', 'Cannot charge that model this turn.'],
                   ['Stand Fast! — hero within 6" already passed', 'Warrior automatically passes — no roll needed.'],
                   ['Heroic Resolve active', 'All friendly models within 6" gain +1 free die to Resist tests; no courage test needed for them.'],
@@ -169,7 +169,7 @@ export default function RulesPage() {
           <div style={{ padding: '0.6rem 0.75rem', backgroundColor: 'rgba(139,26,26,0.2)', border: '1px solid rgba(139,26,26,0.4)', borderRadius: '3px' }}>
             <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.7rem', letterSpacing: '0.1em', color: '#e07070' }}>Breaking Point: </span>
             <span style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.95rem', color: 'rgba(244,228,193,0.8)' }}>
-              A force is Broken when casualties exceed half its starting models (rounded down). All non-Engaged models must test Courage at the start of each Move Phase. Failing models must flee — if they reach a board edge, they are removed.
+              A force is Broken when casualties exceed half its starting models (rounded down). All non-Engaged models must test Courage (2D6 + Courage ≥ 10) at the start of each Move Phase. On a fail, that model is <strong>immediately removed from play</strong> as a casualty — no fleeing, no backing away. Engaged models are exempt.
             </span>
           </div>
         </Accordion>

@@ -99,7 +99,7 @@ export const PHASES: PhaseData[] = [
       },
       {
         step: '5. Broken army Courage tests',
-        detail: 'If any player\'s force is Broken (at or below 50% starting models), each non-Engaged model must roll 2D6 + Courage ≥ 10 before moving. On a fail the model moves its full Move directly away from the nearest enemy. If it reaches a board edge while fleeing, it is removed as a casualty.',
+        detail: 'If any player\'s force is Broken (casualties exceed half starting models), each non-Engaged model must test before moving. Roll 2D6 + Courage — if the total is 10 or more, pass. On a FAIL the model is immediately removed from play as a casualty ("lost its nerve"). Engaged models are exempt.',
         who: 'Broken army players',
       },
       {
@@ -401,7 +401,7 @@ export const HEROIC_ACTIONS = [
 export const COURAGE_RULES = {
   roll: '2D6 + Courage value. If the total is 10 or more the test is passed.',
   brokenThreshold: 'A force is Broken when casualties exceed half its starting models (rounded down).',
-  brokenEffect: 'All non-Engaged models in a Broken force must test at the start of the Move Phase before moving. On a fail, the model moves its full Move directly away from the nearest enemy. If it reaches a board edge, it is removed as a casualty.',
+  brokenEffect: 'All non-Engaged models in a Broken force must test (2D6 + Courage ≥ 10) at the start of the Move Phase before moving. On a fail, the model is immediately removed from play as a casualty — it has lost its nerve.',
   standFast: 'Warrior models do not need to test if a friendly Hero within 6" has already passed their Courage test this turn. Engaged Heroes cannot trigger Stand Fast!',
   terror: 'Models must pass a Courage test before charging a model with Terror. On a fail, they cannot charge that model.',
 };
