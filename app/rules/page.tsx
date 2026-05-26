@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { WOUND_TABLE, HEROIC_ACTIONS } from '../../lib/gameRules';
+import { RULES_MANUAL_SCENARIOS, MATCHED_PLAY_SCENARIOS, ALL_SCENARIOS, Scenario } from '../../lib/scenarios';
 import WoundTable from '../../components/WoundTable';
 
 interface AccordionProps {
@@ -58,6 +59,116 @@ function Accordion({ title, icon, children, defaultOpen = false }: AccordionProp
         </div>
       </div>
     </div>
+  );
+}
+
+const GAME_END_LABELS: Record<string, string> = {
+  '25pct': '25% end',
+  'broken-roll': 'Broken + D6',
+  'artifact': 'Artefact / 25%',
+  'ongoing': 'Special',
+};
+
+function ScenarioCard({ scenario }: { scenario: Scenario }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="panel-inner" style={{ marginBottom: '0.4rem', padding: 0 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          width: '100%', padding: '0.55rem 0.7rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem',
+          textAlign: 'left',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: 0 }}>
+          <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.88rem', color: '#f4e4c1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {scenario.name}
+          </span>
+          <span style={{
+            fontFamily: 'Cinzel, serif', fontSize: '0.58rem', letterSpacing: '0.08em',
+            color: 'rgba(200,169,110,0.55)', padding: '0.1rem 0.3rem',
+            border: '1px solid rgba(200,169,110,0.2)', borderRadius: '2px', whiteSpace: 'nowrap', flexShrink: 0,
+          }}>
+            {GAME_END_LABELS[scenario.gameEndType]}
+          </span>
+        </div>
+        <span style={{ color: 'rgba(200,169,110,0.45)', fontSize: '0.7rem', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: '0 0.7rem 0.65rem', borderTop: '1px solid rgba(200,169,110,0.12)' }}>
+          <p style={{ fontFamily: 'Crimson Text, serif', fontStyle: 'italic', fontSize: '0.88rem', color: 'rgba(244,228,193,0.7)', margin: '0.45rem 0 0.5rem', lineHeight: 1.35 }}>
+            {scenario.objective}
+          </p>
+
+          {scenario.specialRules.length > 0 && (
+            <>
+              <p style={{ fontFamily: 'Cinzel, serif', fontSize: '0.62rem', letterSpacing: '0.08em', color: 'rgba(200,169,110,0.6)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Special Rules</p>
+              <ul style={{ paddingLeft: '1rem', marginBottom: '0.5rem' }}>
+                {scenario.specialRules.map((r, i) => (
+                  <li key={i} style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.82rem', color: 'rgba(244,228,193,0.65)', lineHeight: 1.35, marginBottom: '0.2rem' }}>{r}</li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <p style={{ fontFamily: 'Cinzel, serif', fontSize: '0.62rem', letterSpacing: '0.08em', color: '#c8a96e', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Victory Points</p>
+          <ul style={{ paddingLeft: '1rem', marginBottom: '0.5rem' }}>
+            {scenario.vpScoring.map((v, i) => (
+              <li key={i} style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.82rem', color: 'rgba(244,228,193,0.75)', lineHeight: 1.35, marginBottom: '0.2rem' }}>{v}</li>
+            ))}
+          </ul>
+
+          <div style={{ padding: '0.3rem 0.5rem', backgroundColor: 'rgba(139,26,26,0.15)', border: '1px solid rgba(139,26,26,0.25)', borderRadius: '3px' }}>
+            <span style={{ fontFamily: 'Cinzel, serif', fontSize: '0.6rem', letterSpacing: '0.08em', color: '#e07070' }}>Game Ends: </span>
+            <span style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.82rem', color: 'rgba(244,228,193,0.75)' }}>{scenario.gameEnd}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type ScenarioFilter = 'all' | 'rules-manual' | 'matched-play';
+
+function ScenariosAccordion() {
+  const [filter, setFilter] = useState<ScenarioFilter>('all');
+  const visible =
+    filter === 'rules-manual' ? RULES_MANUAL_SCENARIOS :
+    filter === 'matched-play' ? MATCHED_PLAY_SCENARIOS :
+    ALL_SCENARIOS;
+
+  const filterBtnStyle = (active: boolean) => ({
+    fontFamily: 'Cinzel, serif' as const,
+    fontSize: '0.68rem',
+    letterSpacing: '0.06em',
+    padding: '0.3rem 0.65rem',
+    border: `1px solid ${active ? '#c8a96e' : 'rgba(200,169,110,0.3)'}`,
+    borderRadius: '3px',
+    background: active ? 'rgba(200,169,110,0.15)' : 'transparent',
+    color: active ? '#c8a96e' : 'rgba(200,169,110,0.55)',
+    cursor: 'pointer',
+  });
+
+  return (
+    <Accordion title="Scenarios" icon="📜">
+      <p style={{ fontFamily: 'Crimson Text, serif', fontSize: '0.95rem', color: 'rgba(244,228,193,0.7)', marginBottom: '0.75rem' }}>
+        All 18 official matched play scenarios. Each includes objectives, VP scoring, and game end conditions.
+        Click a scenario to expand its full rules.
+      </p>
+
+      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+        <button style={filterBtnStyle(filter === 'all')} onClick={() => setFilter('all')}>All (18)</button>
+        <button style={filterBtnStyle(filter === 'rules-manual')} onClick={() => setFilter('rules-manual')}>Rules Manual (12)</button>
+        <button style={filterBtnStyle(filter === 'matched-play')} onClick={() => setFilter('matched-play')}>Matched Play (6)</button>
+      </div>
+
+      <div>
+        {visible.map((s) => <ScenarioCard key={s.id} scenario={s} />)}
+      </div>
+    </Accordion>
   );
 }
 
@@ -213,15 +324,15 @@ export default function RulesPage() {
             {[
               {
                 title: 'When is an army broken?',
-                text: 'An army is broken when half or more of its models have been removed as casualties. Count the total models at the start of the game.',
+                text: 'A force is Broken when more than half of its models have been removed as casualties. Count the total models at the very start of the game.',
               },
               {
                 title: 'What happens when broken?',
-                text: 'Every model in a broken army must take a Courage test at the start of the Move Phase. If failed, the model may not move closer to the enemy and may not charge.',
+                text: 'At the start of each Move Phase, every non-Engaged model in a broken army must take a Courage test (2D6 + Courage ≥ 10). On a fail, the model is immediately removed from play as a casualty — it has lost its nerve. Models already engaged in combat are exempt.',
               },
               {
                 title: 'Heroes and Breaking Point',
-                text: 'Heroes may use Might to pass Courage tests (spend 1 Might to modify the roll by 1). A Hero who passes may also inspire nearby models using Heroic Resolve.',
+                text: 'Heroes may spend Might to modify the Courage roll (1 Might = +1 to the 2D6 result). A Hero that passes may shout a Stand Fast! to automatically pass nearby warriors.',
               },
               {
                 title: 'Conceding the Battle',
@@ -229,7 +340,7 @@ export default function RulesPage() {
               },
               {
                 title: 'Scenario Victory',
-                text: 'Many scenarios grant bonus VPs for breaking the opponent\'s army. Always check the specific scenario rules for what happens at breaking point.',
+                text: 'Most scenarios grant 1 VP for breaking the enemy and additional VP if the enemy is broken while your force is not. Check each scenario\'s VP rules.',
               },
             ].map((item, i) => (
               <div key={i} className="panel-inner">
@@ -239,6 +350,9 @@ export default function RulesPage() {
             ))}
           </div>
         </Accordion>
+
+        {/* Scenarios */}
+        <ScenariosAccordion />
 
         {/* Footer ornament */}
         <div style={{ textAlign: 'center', marginTop: '2rem', color: '#c8a96e', opacity: 0.4, letterSpacing: '0.4rem' }}>
