@@ -54,6 +54,8 @@ type PlayerState = {
   points: number;
   vp: number;
   models: ModelEntry[];
+  armySize: number;       // starting model count (0 = not set)
+  modelsRemaining: number;
 };
 
 function GameContent() {
@@ -77,6 +79,8 @@ function GameContent() {
         points: pointLimit,
         vp: 0,
         models: [],
+        armySize: 0,
+        modelsRemaining: 0,
       });
     }
     return list;
@@ -90,10 +94,14 @@ function GameContent() {
   const [gameOver, setGameOver] = useState(false);
   const [checkedActions, setCheckedActions] = useState<Set<string>>(new Set());
 
-  const breakingPoint = Math.floor(pointLimit / 2);
-
   function updatePlayer(idx: number, patch: Partial<PlayerState>) {
     setPlayers((ps) => ps.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  }
+
+  function setArmySize(idx: number, size: number) {
+    setPlayers((ps) => ps.map((p, i) =>
+      i === idx ? { ...p, armySize: size, modelsRemaining: size } : p
+    ));
   }
 
   function handlePhaseChange(phase: number) {
@@ -136,8 +144,10 @@ function GameContent() {
   const currentPhaseData = PHASES[currentPhase];
   const phaseColor = currentPhaseData.color;
 
-  // Breaking-point status
-  const playerBreaking = players.map((p) => p.points <= breakingPoint);
+  // Breaking-point status — model count based (≤25% of starting models)
+  const playerBreaking = players.map((p) =>
+    p.armySize > 0 && p.modelsRemaining <= Math.floor(p.armySize * 0.25)
+  );
   const anyBreaking = playerBreaking.some(Boolean);
 
   // Game over screen
@@ -465,9 +475,13 @@ function GameContent() {
               points={p.points}
               vp={p.vp}
               models={p.models}
+              armySize={p.armySize}
+              modelsRemaining={p.modelsRemaining}
               onPointsChange={(v) => updatePlayer(i, { points: v })}
               onVpChange={(v) => updatePlayer(i, { vp: v })}
               onModelsChange={(m) => updatePlayer(i, { models: m })}
+              onArmySizeChange={(v) => setArmySize(i, v)}
+              onModelsRemainingChange={(v) => updatePlayer(i, { modelsRemaining: v })}
               isBreaking={playerBreaking[i]}
               hasPriority={priorityPlayer === i}
               playerIndex={i}

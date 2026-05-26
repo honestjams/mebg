@@ -23,9 +23,13 @@ interface PlayerPanelProps {
   points: number;
   vp: number;
   models: ModelEntry[];
+  armySize: number;
+  modelsRemaining: number;
   onPointsChange: (val: number) => void;
   onVpChange: (val: number) => void;
   onModelsChange: (models: ModelEntry[]) => void;
+  onArmySizeChange: (val: number) => void;
+  onModelsRemainingChange: (val: number) => void;
   isBreaking: boolean;
   hasPriority: boolean;
   playerIndex: number; // 0..3 for colour theming
@@ -176,13 +180,18 @@ export default function PlayerPanel({
   points,
   vp,
   models,
+  armySize,
+  modelsRemaining,
   onPointsChange,
   onVpChange,
   onModelsChange,
+  onArmySizeChange,
+  onModelsRemainingChange,
   isBreaking,
   hasPriority,
   playerIndex,
 }: PlayerPanelProps) {
+  const [armySizeInput, setArmySizeInput] = useState(armySize > 0 ? String(armySize) : '');
   const [heroOpen, setHeroOpen] = useState(true);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [rosterFilter, setRosterFilter] = useState('');
@@ -335,6 +344,129 @@ export default function PlayerPanel({
           Lost: {pointsLost} pts
         </div>
       </div>
+
+      <hr className="gold-rule" />
+
+      {/* Force Strength */}
+      {(() => {
+        const breakAt = armySize > 0 ? Math.floor(armySize * 0.25) : null;
+        const remainPct = armySize > 0 ? Math.max(0, Math.min(100, (modelsRemaining / armySize) * 100)) : 100;
+        return (
+          <div style={{ marginBottom: '0.65rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+              <span className="lotr-label" style={{ margin: 0 }}>Force Strength</span>
+              {armySize > 0 && (
+                <span style={{
+                  fontFamily: 'Cinzel, serif',
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  color: isBreaking ? '#e07070' : '#f4e4c1',
+                }}>
+                  {modelsRemaining}
+                  <span style={{ fontSize: '0.8rem', color: 'rgba(244,228,193,0.4)', fontWeight: 400 }}>
+                    /{armySize}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* Army size setter */}
+            {armySize === 0 ? (
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  min={1}
+                  max={300}
+                  className="lotr-input"
+                  placeholder="Starting models…"
+                  value={armySizeInput}
+                  onChange={(e) => setArmySizeInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const n = parseInt(armySizeInput, 10);
+                      if (n > 0) onArmySizeChange(n);
+                    }
+                  }}
+                  style={{ flex: 1, padding: '0.25rem 0.5rem', fontSize: '0.85rem' }}
+                />
+                <button
+                  className="btn-gold"
+                  style={{ fontSize: '0.7rem', padding: '0.3rem 0.6rem', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    const n = parseInt(armySizeInput, 10);
+                    if (n > 0) onArmySizeChange(n);
+                  }}
+                >
+                  Set
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Progress bar */}
+                <div style={{
+                  height: '4px',
+                  backgroundColor: 'rgba(200,169,110,0.15)',
+                  borderRadius: '2px',
+                  marginBottom: '0.4rem',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${remainPct}%`,
+                    backgroundColor: isBreaking ? '#8b1a1a' : remainPct <= 50 ? '#c8703a' : factionColor,
+                    transition: 'width 0.3s ease, background-color 0.3s ease',
+                  }} />
+                </div>
+
+                {/* Casualty buttons */}
+                <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn-counter"
+                    onClick={() => onModelsRemainingChange(Math.max(0, modelsRemaining - 1))}
+                    disabled={modelsRemaining <= 0}
+                    style={{ opacity: modelsRemaining <= 0 ? 0.3 : 1, width: '44px', height: '26px', fontSize: '0.75rem' }}
+                  >
+                    −1
+                  </button>
+                  <button
+                    className="btn-counter"
+                    onClick={() => onModelsRemainingChange(Math.min(armySize, modelsRemaining + 1))}
+                    disabled={modelsRemaining >= armySize}
+                    style={{ opacity: modelsRemaining >= armySize ? 0.3 : 1, width: '44px', height: '26px', fontSize: '0.75rem' }}
+                  >
+                    +1
+                  </button>
+                  <button
+                    className="btn-counter"
+                    onClick={() => {
+                      setArmySizeInput('');
+                      onArmySizeChange(0);
+                    }}
+                    style={{ width: '44px', height: '26px', fontSize: '0.7rem' }}
+                    title="Reset army size"
+                  >
+                    ↺
+                  </button>
+                </div>
+
+                {/* Breaking point info */}
+                <div style={{
+                  fontFamily: 'Cinzel, serif',
+                  fontSize: '0.6rem',
+                  letterSpacing: '0.08em',
+                  color: isBreaking ? '#e07070' : 'rgba(200,169,110,0.4)',
+                  textAlign: 'center',
+                  marginTop: '0.25rem',
+                }}>
+                  {isBreaking
+                    ? '⚔ FORCE BROKEN — courage tests at Move Phase start'
+                    : `Breaks at ≤ ${breakAt} model${breakAt === 1 ? '' : 's'} · ${armySize - modelsRemaining} lost`}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       <hr className="gold-rule" />
 
